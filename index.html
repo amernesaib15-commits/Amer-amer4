@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOGO - منصة المهام اليومية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase Libraries -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug');
+        
+        // Use global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+        }
+        
+        let userId = null;
+        
+        if (auth) {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    console.log("User is signed in with UID:", userId);
+                    fetchTasks();
+                    // Update the invite link with the real userId AFTER authentication
+                    document.getElementById('invite-link').textContent = `https://your-platform.com/invite?ref=${userId}`;
+                    document.getElementById('user-id-display').textContent = `ID: ${userId}`;
+                } else {
+                    console.log("No user is signed in. Signing in anonymously...");
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Firebase Auth Error:", error);
+                    }
+                }
+            });
+        }
+
+        window.addTask = async () => {
+            const taskInput = document.getElementById('new-task-input');
+            const taskTitle = taskInput.value.trim();
+            if (taskTitle === "" || !userId) {
+                return;
+            }
+            try {
+                const tasksCollection = collection(db, `artifacts/${appId}/users/${userId}/daily_tasks`);
+                await addDoc(tasksCollection, {
+                    title: taskTitle,
+                    completed: false,
+                    createdAt: Date.now()
+                });
+                taskInput.value = '';
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showMessageBox("فشل إضافة المهمة. حاول مرة أخرى.");
+            }
+        };
+
+        window.deleteTask = async (taskId) => {
+            if (!userId) {
+                return;
+            }
+            try {
+                const taskRef = doc(db, `artifacts/${appId}/users/${userId}/daily_tasks`, taskId);
+                await deleteDoc(taskRef);
+            } catch (error) {
+                console.error("Error deleting document: ", error);
+                showMessageBox("فشل حذف المهمة. حاول مرة أخرى.");
+            }
+        };
+
+        function fetchTasks() {
+            if (!userId) {
+                return;
+            }
+            const tasksCollection = collection(db, `artifacts/${appId}/users/${userId}/daily_tasks`);
+            onSnapshot(tasksCollection, (snapshot) => {
+                const tasksList = document.getElementById('daily-tasks-list');
+                tasksList.innerHTML = '';
+                snapshot.docs.forEach(doc => {
+                    const task = doc.data();
+                    const taskId = doc.id;
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'items-center', 'justify-between', 'bg-gray-700', 'p-3', 'rounded-lg', 'shadow-md', 'border', 'border-gray-600');
+                    li.innerHTML = `
+                        <span class="text-sm">${task.title}</span>
+                        <button onclick="deleteTask('${taskId}')" class="text-red-400 hover:text-red-500 transition-colors duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    tasksList.appendChild(li);
+                });
+            });
+        }
+
+        window.showSection = (sectionId) => {
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('text-blue-400');
+                item.classList.add('text-gray-400');
+            });
+            document.querySelector(`.nav-item[data-section="${sectionId}"]`).classList.add('text-blue-400');
+        };
+
+        window.copyInviteLink = () => {
+            const inviteLink = document.getElementById('invite-link').innerText;
+            if (inviteLink && !inviteLink.includes("يتم تحميل الرابط...")) {
+                const tempInput = document.createElement('input');
+                tempInput.value = inviteLink;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+                showMessageBox('تم نسخ الرابط!');
+            } else {
+                 showMessageBox("الرابط غير صالح. يرجى الانتظار حتى يتم تحميل معرف المستخدم.");
+            }
+        };
+        
+        window.showMessageBox = (message) => {
+            document.getElementById('message-text').innerText = message;
+            document.getElementById('message-box').style.display = 'block';
+        };
+
+        window.hideMessageBox = () => {
+            document.getElementById('message-box').style.display = 'none';
+        };
+
+        // Initial state
+        document.addEventListener('DOMContentLoaded', () => {
+            showSection('home');
+        });
+    </script>
+    <style>
+        body {
+            direction: rtl;
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            background-color: #1a202c;
+            color: #d1d5db;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding-bottom: 70px;
+        }
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #2d3748;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container p-4">
+
+        <!-- Home Section -->
+        <section id="home" class="page-section">
+            <header class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-blue-400">HOGO</h1>
+                <p class="text-sm text-gray-400 mt-2">منصة المهام اليومية</p>
+            </header>
+            
+            <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                        <p class="text-gray-400 text-sm">الرصيد</p>
+                        <p class="text-lg font-bold text-green-400 mt-1">$25.50</p>
+                    </div>
+                    <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                        <p class="text-gray-400 text-sm">المهام المكتملة</p>
+                        <p class="text-lg font-bold text-yellow-400 mt-1">12</p>
+                    </div>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-gray-400 text-sm">مستوى العضوية</p>
+                    <p class="text-lg font-bold text-purple-400 mt-1">VIP 2</p>
+                </div>
+                <p id="user-id-display" class="text-xs text-gray-500 mt-4 text-center break-all"></p>
+            </div>
+            
+            <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+                <h2 class="text-xl font-bold mb-4 text-blue-400">المهام اليومية</h2>
+                <div class="flex items-center space-x-2 space-x-reverse rtl mb-4">
+                    <input type="text" id="new-task-input" class="flex-1 p-2 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="أضف مهمة جديدة...">
+                    <button onclick="addTask()" class="bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold transition-transform hover:scale-105">إضافة</button>
+                </div>
+                <ul id="daily-tasks-list" class="space-y-3">
+                    <!-- Tasks will be dynamically added here -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- VIP Section -->
+        <section id="vip" class="page-section hidden">
+            <h2 class="text-2xl font-bold text-blue-400 text-center mb-6">مستويات VIP</h2>
+            <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+                <p class="text-gray-400 mb-4">احصل على مزايا حصرية من خلال الترقية إلى مستويات VIP الأعلى.</p>
+                <ul class="space-y-4">
+                    <li class="bg-gray-700 p-4 rounded-lg border border-gray-600 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="text-3xl ml-2">⭐</span>
+                            <div>
+                                <h4 class="font-semibold text-white">VIP 1</h4>
+                                <p class="text-xs text-gray-400">مكافآت يومية: $1.50</p>
+                            </div>
+                        </div>
+                        <span class="text-green-400 font-semibold">نشط</span>
+                    </li>
+                    <li class="bg-gray-700 p-4 rounded-lg border border-gray-600 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="text-3xl ml-2">✨</span>
+                            <div>
+                                <h4 class="font-semibold text-white">VIP 2</h4>
+                                <p class="text-xs text-gray-400">مكافآت يومية: $3.00</p>
+                            </div>
+                        </div>
+                        <span class="text-gray-500 font-semibold">غير نشط</span>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Invite Section -->
+        <section id="invite" class="page-section hidden">
+            <h2 class="text-2xl font-bold text-blue-400 text-center mb-6">دعوة الأصدقاء</h2>
+            <div class="bg-gray-800 rounded-xl p-6 shadow-lg text-center">
+                <p class="text-gray-400 text-sm mb-4">شارك هذا الرابط مع أصدقائك للحصول على مكافآت!</p>
+                <div class="relative bg-gray-700 rounded-lg p-3 flex items-center mb-4 border border-gray-600">
+                    <span id="invite-link" class="text-sm font-semibold text-gray-400 overflow-hidden text-ellipsis whitespace-nowrap">يتم تحميل الرابط...</span>
+                    <button class="absolute left-3 bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-semibold" onclick="copyInviteLink()">
+                        نسخ
+                    </button>
+                </div>
+                <div class="bg-gray-700 h-px my-6"></div>
+                <h3 class="text-lg font-bold text-white">أرباح الإحالات</h3>
+                <p class="text-2xl font-bold text-green-400 mt-2">$0.00</p>
+            </div>
+        </section>
+
+        <!-- Transactions Section -->
+        <section id="transactions" class="page-section hidden">
+            <h2 class="text-2xl font-bold text-blue-400 text-center mb-6">السحب والإيداع</h2>
+            
+            <!-- Recharge Section -->
+            <div class="bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
+                <h3 class="text-xl font-bold text-white mb-4">شحن الرصيد</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="recharge-amount" class="block text-sm font-medium text-gray-400 mb-1">المبلغ (بالدولار الأمريكي)</label>
+                        <input type="number" id="recharge-amount" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="أدخل المبلغ">
+                    </div>
+                    <button class="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-semibold transition-transform hover:scale-105">شحن</button>
+                </div>
+            </div>
+
+            <!-- Withdraw Section -->
+            <div class="bg-gray-800 p-6 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-white mb-4">سحب الأموال</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="withdraw-amount" class="block text-sm font-medium text-gray-400 mb-1">المبلغ (بالدولار الأمريكي)</label>
+                        <input type="number" id="withdraw-amount" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="أدخل المبلغ">
+                    </div>
+                    <div>
+                        <label for="wallet-address" class="block text-sm font-medium text-gray-400 mb-1">عنوان المحفظة (USDT TRC20)</label>
+                        <input type="text" id="wallet-address" class="w-full p-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="أدخل عنوان المحفظة">
+                    </div>
+                    <button class="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-semibold transition-transform hover:scale-105">سحب</button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Customer Service Section -->
+        <section id="service" class="page-section hidden">
+            <h2 class="text-2xl font-bold text-blue-400 text-center mb-6">خدمة العملاء</h2>
+            <div class="bg-gray-800 rounded-xl p-6 shadow-lg text-center">
+                <p class="text-gray-400 mb-4">تواصل معنا للحصول على الدعم الفني أو الإجابة على استفساراتك.</p>
+                <div class="space-y-4">
+                    <a href="#" class="block bg-gray-700 p-4 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors duration-200">
+                        <span class="text-lg">📞</span>
+                        <span class="block mt-2">اتصل بنا</span>
+                    </a>
+                    <a href="#" class="block bg-gray-700 p-4 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors duration-200">
+                        <span class="text-lg">💬</span>
+                        <span class="block mt-2">الدردشة المباشرة</span>
+                    </a>
+                    <a href="#" class="block bg-gray-700 p-4 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors duration-200">
+                        <span class="text-lg">📧</span>
+                        <span class="block mt-2">راسلنا عبر البريد الإلكتروني</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Message Box -->
+    <div id="message-box">
+        <p id="message-text"></p>
+        <button onclick="hideMessageBox()" class="mt-4 bg-blue-600 text-white py-1 px-4 rounded-lg">إغلاق</button>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-3 shadow-lg flex justify-around items-center">
+        <a href="#" class="nav-item flex flex-col items-center text-xs text-gray-400" data-section="home" onclick="showSection('home')">
+            <span class="text-xl">🏠</span>
+            <span class="mt-1">الرئيسية</span>
+        </a>
+        <a href="#" class="nav-item flex flex-col items-center text-xs text-gray-400" data-section="transactions" onclick="showSection('transactions')">
+            <span class="text-xl">💰</span>
+            <span class="mt-1">الرصيد</span>
+        </a>
+        <a href="#" class="nav-item flex flex-col items-center text-xs text-gray-400" data-section="vip" onclick="showSection('vip')">
+            <span class="text-xl">👑</span>
+            <span class="mt-1">VIP</span>
+        </a>
+        <a href="#" class="nav-item flex flex-col items-center text-xs text-gray-400" data-section="invite" onclick="showSection('invite')">
+            <span class="text-xl">👥</span>
+            <span class="mt-1">الفريق</span>
+        </a>
+        <a href="#" class="nav-item flex flex-col items-center text-xs text-gray-400" data-section="service" onclick="showSection('service')">
+            <span class="text-xl">📞</span>
+            <span class="mt-1">خدمة العملاء</span>
+        </a>
+    </nav>
+</body>
+</html>
