@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة الذكاء الاصطناعي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            direction: rtl;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .membership-card {
+            transition: all 0.3s ease;
+        }
+        .membership-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .horizontal-scroll {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 1rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        .horizontal-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .horizontal-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+
+    <!-- Message Box -->
+    <div id="message-box" class="hidden fixed top-4 inset-x-4 max-w-sm mx-auto p-4 rounded-lg text-white text-center shadow-lg transition-all duration-300 z-50"></div>
+
+    <!-- Admin Login Screen -->
+    <div id="admin-login-screen" class="bg-white rounded-xl shadow-lg p-6 max-w-md w-full mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mb-6">تسجيل دخول المدير</h1>
+        <div class="space-y-4">
+            <input type="password" id="admin-password" placeholder="أدخل كلمة المرور" class="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right">
+            <button id="admin-login-btn" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-colors">
+                دخول
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App and Admin Panel Container -->
+    <div id="app-container" class="hidden bg-white rounded-xl shadow-lg p-6 max-w-4xl w-full mx-auto">
+
+        <!-- Header -->
+        <header class="mb-6 pb-4 border-b border-gray-200 flex justify-between items-center">
+            <h1 id="header-title" class="text-3xl font-bold text-gray-800">منصة الذكاء الاصطناعي</h1>
+            <button id="switch-view-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors">
+                التبديل إلى لوحة التحكم
+            </button>
+        </header>
+
+        <!-- User View -->
+        <div id="user-view">
+            <div class="flex items-center justify-between text-lg text-gray-600 mb-6">
+                <div>
+                    <span>الرصيد:</span>
+                    <span id="balance-display" class="font-bold text-green-600">0.00$</span>
+                </div>
+                <div>
+                    <span>العضوية:</span>
+                    <span id="membership-level-display" class="font-bold text-yellow-600">مجانية</span>
+                </div>
+            </div>
+
+            <!-- Daily Bonus Section -->
+            <section class="mb-6 bg-yellow-100 p-4 rounded-lg shadow-sm">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-2">المكافأة اليومية</h2>
+                <div class="flex items-center justify-between gap-4">
+                    <p id="daily-bonus-info" class="text-gray-600 flex-1">
+                        تحصل على مكافأة يومية قدرها <span id="daily-payout" class="font-bold">0.00$</span>.
+                        <span id="cooldown-timer" class="block text-sm text-gray-500 mt-1"></span>
+                    </p>
+                    <button id="collect-bonus-btn" class="bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-md">
+                        تحصيل المكافأة
+                    </button>
+                </div>
+            </section>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Deposit Section -->
+            <section class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">شحن الحساب</h2>
+                <div class="bg-gray-100 p-4 rounded-lg space-y-4">
+                    <!-- Wallet Address Section -->
+                    <div class="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex-wrap">
+                        <span class="text-sm font-semibold text-gray-700 mb-2 md:mb-0">عنوان المحفظة:</span>
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                             <input type="text" id="wallet-address-input" class="flex-1 p-2 rounded-lg border border-gray-300 text-gray-700 bg-gray-50 text-right text-sm font-mono min-w-0 truncate" value="0xAb4415A6Ed0a199CBF68E06a65A4E5d379B0Cb68" readonly>
+                            <button id="copy-wallet-btn" class="bg-indigo-500 text-white py-2 px-4 rounded-lg transition-colors hover:bg-indigo-700 text-sm">
+                                نسخ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Other Actions Section -->
+            <section class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">إجراءات أخرى</h2>
+                <div class="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-gray-100 p-4 rounded-lg">
+                    <input type="number" id="withdraw-amount-input" placeholder="أدخل مبلغ السحب بالدولار" class="flex-1 p-3 rounded-lg border border-gray-300 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="user-wallet-address" placeholder="أدخل عنوان محفظتك" class="flex-1 p-3 rounded-lg border border-gray-300 text-right focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button id="withdraw-btn" class="w-full md:w-auto bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-md">
+                        سحب
+                    </button>
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <p class="mb-1">عدد السحبات اليومية المتاحة: <span id="withdrawals-left-display" class="font-bold text-indigo-600">0</span> / 3</p>
+                    <p>رسوم السحب: <span id="withdrawal-fee-display" class="font-bold">10%</span></p>
+                </div>
+            </section>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Membership Section -->
+            <section class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">العضويات المدفوعة</h2>
+                <p class="text-gray-600 mb-4">اختر العضوية التي تناسبك لتحصل على أرباح يومية.</p>
+                <div id="memberships-container" class="flex flex-row gap-4 horizontal-scroll">
+                    <!-- Membership buttons will be rendered here by JS -->
+                </div>
+            </section>
+
+            <hr class="my-6 border-gray-200">
+
+            <!-- Referral Section -->
+            <section class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">دعوة الأصدقاء</h2>
+                <div class="flex items-center justify-between text-lg text-gray-600 mb-4">
+                    <span>عدد المدعوين:</span>
+                    <span id="referral-count-display" class="font-bold text-indigo-600">0</span>
+                </div>
+                <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+                    <input type="text" id="referral-link" class="flex-1 p-3 rounded-lg border border-gray-300 text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right" value="https://example.com/invite?ref=user12345" readonly>
+                    <button id="copy-referral-btn" class="bg-indigo-500 text-white py-3 px-6 rounded-lg transition-colors hover:bg-indigo-700">
+                        نسخ الرابط
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Admin Panel View -->
+        <div id="admin-view" class="hidden">
+            <!-- User Management Section -->
+            <section class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">إدارة المستخدمين</h2>
+                <div id="users-container" class="space-y-4">
+                    <!-- Users will be rendered here -->
+                </div>
+            </section>
+
+            <hr class="my-6 border-gray-200">
+            
+            <!-- Other Admin Sections -->
+            <section>
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">إدارة المهام</h2>
+                <div class="bg-gray-100 p-4 rounded-lg space-y-4">
+                    <p class="text-gray-600">تمت إزالة هذا القسم من واجهة المستخدم، ولكنه يبقى هنا للتحكم.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Start of JavaScript
+        // --- State Variables (Simulated Backend) ---
+        const ADMIN_PASSWORD = "admin";
+        let isLoggedIn = false;
+        let isUserView = true;
+        let balance = 0;
+        let currentMembership = 'Free';
+        let lastBonusClaimDate = null;
+        const currentUserId = 'user12345'; // Simulating a unique user ID
+        let withdrawalsToday = 0;
+        let lastWithdrawalDate = null;
+
+        // Data for memberships and tasks
+        const memberships = {
+            'Free': { cost: 0, dailyPayout: 0, withdrawalFee: 0.10, image: 'https://placehold.co/40x40/f3f4f6/a1a1aa?text=F' },
+            'Premium': { cost: 20, dailyPayout: 2.5, withdrawalFee: 0.08, image: 'https://placehold.co/40x40/FFD700/FFF?text=P' },
+            'Silver': { cost: 40, dailyPayout: 6.0, withdrawalFee: 0.07, image: 'https://placehold.co/40x40/C0C0C0/FFF?text=S' },
+            'Gold': { cost: 100, dailyPayout: 15.0, withdrawalFee: 0.05, image: 'https://placehold.co/40x40/FFC014/FFF?text=G' },
+            'Platinum': { cost: 200, dailyPayout: 30.0, withdrawalFee: 0.04, image: 'https://placehold.co/40x40/E5E4E2/FFF?text=P' },
+            'Diamond': { cost: 400, dailyPayout: 65.0, withdrawalFee: 0.03, image: 'https://placehold.co/40x40/B9F2FF/FFF?text=D' },
+            'VIP': { cost: 2000, dailyPayout: 300.0, withdrawalFee: 0.02, image: 'https://placehold.co/40x40/000/FFF?text=VIP' }
+        };
+        
+        // Simulated User Data for Admin Panel
+        let simulatedUsers = [
+            { id: 'user12345', name: "المستخدم 1", balance: 15.75, membership: 'Premium', referrerId: null, isBlocked: false, withdrawalsMade: 1 },
+            { id: 'user67890', name: "المستخدم 2", balance: 4.20, membership: 'Free', referrerId: 'user12345', isBlocked: false, withdrawalsMade: 0 },
+            { id: 'user11123', name: "المستخدم 3", balance: 50.00, membership: 'Gold', referrerId: 'user12345', isBlocked: false, withdrawalsMade: 2 },
+            { id: 'user44556', name: "المستخدم 4", balance: 8.50, membership: 'Free', referrerId: 'user67890', isBlocked: false, withdrawalsMade: 0 },
+            { id: 'user77889', name: "المستخدم 5", balance: 1.00, membership: 'Free', referrerId: 'user12345', isBlocked: true, withdrawalsMade: 3 },
+        ];
+        
+        // --- UI Elements ---
+        const adminLoginScreen = document.getElementById('admin-login-screen');
+        const appContainer = document.getElementById('app-container');
+        const adminPasswordInput = document.getElementById('admin-password');
+        const adminLoginBtn = document.getElementById('admin-login-btn');
+        const userView = document.getElementById('user-view');
+        const adminView = document.getElementById('admin-view');
+        const headerTitle = document.getElementById('header-title');
+        const switchViewBtn = document.getElementById('switch-view-btn');
+        const balanceDisplay = document.getElementById('balance-display');
+        const membershipLevelDisplay = document.getElementById('membership-level-display');
+        const dailyPayoutDisplay = document.getElementById('daily-payout');
+        const collectBonusBtn = document.getElementById('collect-bonus-btn');
+        const usersContainer = document.getElementById('users-container');
+        const membershipsContainer = document.getElementById('memberships-container');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const withdrawAmountInput = document.getElementById('withdraw-amount-input');
+        const userWalletAddressInput = document.getElementById('user-wallet-address'); // new element
+        const withdrawalsLeftDisplay = document.getElementById('withdrawals-left-display');
+        const copyReferralBtn = document.getElementById('copy-referral-btn');
+        const referralLinkInput = document.getElementById('referral-link');
+        const referralCountDisplay = document.getElementById('referral-count-display');
+        const cooldownTimerDisplay = document.getElementById('cooldown-timer');
+        const withdrawalFeeDisplay = document.getElementById('withdrawal-fee-display');
+        
+        // Existing elements
+        const walletAddressInput = document.getElementById('wallet-address-input');
+        const copyWalletBtn = document.getElementById('copy-wallet-btn');
+
+        // --- General Functions ---
+        const messageBox = document.getElementById('message-box');
+        function showMessage(message, type = 'success') {
+            messageBox.textContent = message;
+            messageBox.style.backgroundColor = type === 'success' ? '#22c55e' : '#ef4444';
+            messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function updateUI() {
+            balanceDisplay.textContent = `${balance.toFixed(2)}$`;
+            membershipLevelDisplay.textContent = currentMembership === 'Free' ? 'مجانية' : currentMembership;
+            dailyPayoutDisplay.textContent = `${memberships[currentMembership].dailyPayout.toFixed(2)}$`;
+            withdrawalsLeftDisplay.textContent = `${3 - withdrawalsToday}`;
+            withdrawalFeeDisplay.textContent = `${(memberships[currentMembership].withdrawalFee * 100).toFixed(0)}%`;
+
+            if (currentMembership === 'Free') {
+                collectBonusBtn.disabled = true;
+                collectBonusBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                document.getElementById('daily-bonus-info').textContent = "اشترك في العضوية المدفوعة للحصول على مكافأة يومية.";
+                cooldownTimerDisplay.textContent = '';
+            } else {
+                collectBonusBtn.disabled = false;
+                collectBonusBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                document.getElementById('daily-bonus-info').textContent = `تحصل على مكافأة يومية قدرها ${memberships[currentMembership].dailyPayout.toFixed(2)}$`;
+            }
+
+            const lastClaim = localStorage.getItem('lastBonusClaimDate');
+            if (lastClaim) {
+                const timePassed = new Date() - new Date(lastClaim);
+                const timeLeft = (24 * 60 * 60 * 1000) - timePassed;
+                
+                if (timeLeft > 0) {
+                    collectBonusBtn.disabled = true;
+                    collectBonusBtn.textContent = 'تحصّلت اليوم';
+                    collectBonusBtn.classList.add('bg-gray-400', 'cursor-not-allowed', 'opacity-50');
+                    cooldownTimerDisplay.textContent = `متاح بعد: ${formatTime(timeLeft)}`;
+                } else {
+                    collectBonusBtn.disabled = false;
+                    collectBonusBtn.textContent = 'تحصيل المكافأة';
+                    collectBonusBtn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'opacity-50');
+                    cooldownTimerDisplay.textContent = '';
+                }
+            } else {
+                 cooldownTimerDisplay.textContent = '';
+            }
+
+            const referralCount = simulatedUsers.filter(user => user.referrerId === currentUserId).length;
+            referralCountDisplay.textContent = referralCount;
+        }
+
+        // Update timer every second
+        setInterval(updateUI, 1000);
+
+        function renderMemberships() {
+            membershipsContainer.innerHTML = '';
+            const tierNames = ['Premium', 'Silver', 'Gold', 'Platinum', 'Diamond', 'VIP'];
+            tierNames.forEach(tier => {
+                const memberData = memberships[tier];
+                const button = document.createElement('button');
+                button.className = `membership-card bg-white text-gray-800 font-bold p-4 rounded-lg shadow-md flex-none w-52 inline-block`;
+                
+                button.innerHTML = `
+                    <div class="flex flex-col items-center gap-2">
+                        <img src="${memberData.image}" alt="صورة عضوية ${tier}" class="w-16 h-16 rounded-full border-2 border-yellow-500">
+                        <span class="text-xl font-bold">${tier}</span>
+                    </div>
+                    <div class="flex flex-col text-center mt-2">
+                        <span class="text-lg text-gray-600">التكلفة: <span class="font-bold text-red-500">${memberData.cost}$</span></span>
+                        <span class="text-lg text-gray-600">تربح يومياً: <span class="font-bold text-green-600">${memberData.dailyPayout}$</span></span>
+                        <span class="text-sm text-gray-500 mt-1">رسوم السحب: <span class="font-bold">${(memberData.withdrawalFee * 100).toFixed(0)}%</span></span>
+                    </div>
+                `;
+                button.addEventListener('click', () => purchaseMembership(tier));
+                membershipsContainer.appendChild(button);
+            });
+        }
+
+        function renderUsers() {
+            usersContainer.innerHTML = '';
+            simulatedUsers.forEach(user => {
+                const referrerName = user.referrerId ? simulatedUsers.find(u => u.id === user.referrerId)?.name : 'لا يوجد';
+                const referralsCount = simulatedUsers.filter(u => u.referrerId === user.id).length;
+                const userDiv = document.createElement('div');
+                userDiv.className = 'p-4 rounded-lg bg-gray-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between';
+                
+                userDiv.innerHTML = `
+                    <div class="mb-2 sm:mb-0 space-y-2 flex-1">
+                        <p class="font-semibold text-gray-800">${user.name} <span class="text-sm text-gray-500">(ID: ${user.id})</span></p>
+                        <p class="text-sm text-gray-600">دُعي بواسطة: <span class="font-bold text-indigo-600">${referrerName}</span></p>
+                        <p class="text-sm text-gray-600">عدد المدعوين: <span class="font-bold text-indigo-600">${referralsCount}</span></p>
+                        <p class="text-sm text-gray-600">عدد السحبات: <span class="font-bold text-red-600">${user.withdrawalsMade}</span></p>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                            <label class="text-sm text-gray-600 whitespace-nowrap">الرصيد: </label>
+                            <input type="number" value="${user.balance.toFixed(2)}" class="balance-input w-24 p-1 rounded border border-gray-300 text-sm text-right">
+                            <label class="text-sm text-gray-600 whitespace-nowrap">العضوية: </label>
+                            <select class="membership-select w-24 p-1 rounded border border-gray-300 text-sm text-right">
+                                <option value="Free" ${user.membership === 'Free' ? 'selected' : ''}>مجانية</option>
+                                <option value="Premium" ${user.membership === 'Premium' ? 'selected' : ''}>مدفوعة</option>
+                                <option value="Silver" ${user.membership === 'Silver' ? 'selected' : ''}>فضية</option>
+                                <option value="Gold" ${user.membership === 'Gold' ? 'selected' : ''}>ذهبية</option>
+                                <option value="Platinum" ${user.membership === 'Platinum' ? 'selected' : ''}>بلاتينية</option>
+                                <option value="Diamond" ${user.membership === 'Diamond' ? 'selected' : ''}>الماسية</option>
+                                <option value="VIP" ${user.membership === 'VIP' ? 'selected' : ''}>VIP</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2 sm:mt-0">
+                        <button class="update-user-btn py-2 px-4 rounded-lg text-white transition-colors text-sm font-semibold" data-user-id="${user.id}" style="background-color: #4CAF50;">
+                            تحديث
+                        </button>
+                        <button class="toggle-block-btn py-2 px-4 rounded-lg text-white transition-colors text-sm font-semibold" data-user-id="${user.id}" style="background-color: ${user.isBlocked ? '#f44336' : '#2196f3'};">
+                            ${user.isBlocked ? 'إلغاء الحظر' : 'حظر المستخدم'}
+                        </button>
+                    </div>
+                `;
+                usersContainer.appendChild(userDiv);
+            });
+            
+            document.querySelectorAll('.update-user-btn').forEach(button => {
+                const userId = button.dataset.userId;
+                button.addEventListener('click', () => updateUserFromAdmin(userId));
+            });
+
+            document.querySelectorAll('.toggle-block-btn').forEach(button => {
+                const userId = button.dataset.userId;
+                button.addEventListener('click', () => toggleUserBlock(userId));
+            });
+        }
+
+        // --- Event Handlers ---
+        
+        adminLoginBtn.addEventListener('click', () => {
+            if (adminPasswordInput.value === ADMIN_PASSWORD) {
+                isLoggedIn = true;
+                adminLoginScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                renderUsers();
+                showMessage('تم تسجيل الدخول كمدير بنجاح!', 'success');
+            } else {
+                showMessage('كلمة المرور غير صحيحة!', 'error');
+            }
+        });
+
+        switchViewBtn.addEventListener('click', () => {
+            isUserView = !isUserView;
+            if (isUserView) {
+                userView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                headerTitle.textContent = 'منصة الذكاء الاصطناعي';
+                switchViewBtn.textContent = 'التبديل إلى لوحة التحكم';
+                updateUI();
+            } else {
+                userView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                headerTitle.textContent = 'لوحة تحكم المدير';
+                switchViewBtn.textContent = 'التبديل إلى واجهة المستخدم';
+                renderUsers();
+            }
+        });
+        
+        collectBonusBtn.addEventListener('click', () => {
+            if (currentMembership === 'Free') {
+                showMessage('يجب أن تكون عضواً مدفوعاً لتحصيل المكافأة اليومية.', 'error');
+                return;
+            }
+
+            const lastClaim = localStorage.getItem('lastBonusClaimDate');
+            // This logic ensures a strict 24-hour cooldown
+            if (lastClaim && (new Date() - new Date(lastClaim)) < (24 * 60 * 60 * 1000)) {
+                showMessage('لقد قمت بتحصيل مكافأتك اليومية بالفعل. يرجى الانتظار 24 ساعة.', 'error');
+                return;
+            }
+            
+            const dailyPayout = memberships[currentMembership].dailyPayout;
+            balance += dailyPayout;
+            localStorage.setItem('lastBonusClaimDate', new Date().toISOString());
+            localStorage.setItem('userBalance', balance);
+            updateUI();
+            showMessage(`تم تحصيل مكافأة يومية قدرها ${dailyPayout.toFixed(2)}$ بنجاح!`, 'success');
+        });
+
+        function purchaseMembership(tier) {
+            const memberData = memberships[tier];
+            if (balance >= memberData.cost) {
+                balance -= memberData.cost;
+                currentMembership = tier;
+                localStorage.setItem('userBalance', balance);
+                localStorage.setItem('userMembership', currentMembership);
+                updateUI();
+                showMessage(`تهانينا! لقد حصلت على عضوية ${tier}.`, 'success');
+            } else {
+                showMessage(`الرصيد غير كافٍ لشراء هذه العضوية. التكلفة ${memberData.cost}$.`, 'error');
+            }
+        }
+        
+        withdrawBtn.addEventListener('click', () => {
+            const amount = parseFloat(withdrawAmountInput.value);
+            const userWallet = userWalletAddressInput.value.trim();
+            const WITHDRAWAL_LIMIT = 3;
+            
+            if (isNaN(amount) || amount <= 0) {
+                showMessage('يرجى إدخال مبلغ صحيح للسحب.', 'error');
+                return;
+            }
+
+            if (!userWallet) {
+                showMessage('يرجى إدخال عنوان محفظتك.', 'error');
+                return;
+            }
+            
+            if (withdrawalsToday >= WITHDRAWAL_LIMIT) {
+                showMessage(`لقد وصلت إلى الحد الأقصى للسحوبات اليومية (${WITHDRAWAL_LIMIT}).`, 'error');
+                return;
+            }
+
+            if (balance < amount) {
+                showMessage('الرصيد غير كافٍ لإجراء عملية السحب.', 'error');
+                return;
+            }
+            
+            const withdrawalFee = memberships[currentMembership].withdrawalFee;
+            const fee = amount * withdrawalFee;
+            const finalAmount = amount - fee;
+            
+            balance -= amount;
+            withdrawalsToday++;
+            lastWithdrawalDate = new Date().toISOString();
+
+            localStorage.setItem('userBalance', balance);
+            localStorage.setItem('withdrawalsToday', withdrawalsToday);
+            localStorage.setItem('lastWithdrawalDate', lastWithdrawalDate);
+
+            updateUI();
+            withdrawAmountInput.value = '';
+            userWalletAddressInput.value = '';
+            showMessage(`تم سحب ${finalAmount.toFixed(2)}$ بنجاح إلى المحفظة ${userWallet}! (رسوم ${fee.toFixed(2)}$)`, 'success');
+        });
+        
+        // --- Referral & Support ---
+        copyReferralBtn.addEventListener('click', () => {
+            referralLinkInput.select();
+            document.execCommand('copy');
+            showMessage('تم نسخ الرابط بنجاح!');
+        });
+        
+        // Copy wallet address function
+        copyWalletBtn.addEventListener('click', () => {
+            walletAddressInput.select();
+            document.execCommand('copy');
+            showMessage('تم نسخ عنوان المحفظة بنجاح!');
+        });
+
+        // --- Admin Functions ---
+        function toggleUserBlock(userId) {
+            const user = simulatedUsers.find(u => u.id === userId);
+            if (user) {
+                user.isBlocked = !user.isBlocked;
+                renderUsers();
+                const message = user.isBlocked ? 'تم حظر المستخدم بنجاح!' : 'تم إلغاء حظر المستخدم بنجاح!';
+                showMessage(message, user.isBlocked ? 'error' : 'success');
+            }
+        }
+
+        function updateUserFromAdmin(userId) {
+            const user = simulatedUsers.find(u => u.id === userId);
+            const userDiv = document.querySelector(`[data-user-id="${userId}"]`).closest('.p-4');
+            const newBalance = parseFloat(userDiv.querySelector('.balance-input').value);
+            const newMembership = userDiv.querySelector('.membership-select').value;
+            const newWithdrawals = user.withdrawalsMade;
+
+            if (user && !isNaN(newBalance) && newBalance >= 0) {
+                user.balance = newBalance;
+                user.membership = newMembership;
+                user.withdrawalsMade = newWithdrawals;
+                renderUsers();
+                showMessage('تم تحديث بيانات المستخدم بنجاح!', 'success');
+            } else {
+                showMessage('يرجى إدخال رصيد صحيح.', 'error');
+            }
+        }
+
+        // --- Initial Setup ---
+        function init() {
+            balance = parseFloat(localStorage.getItem('userBalance')) || 0;
+            currentMembership = localStorage.getItem('userMembership') || 'Free';
+            lastBonusClaimDate = localStorage.getItem('lastBonusClaimDate') || null;
+            withdrawalsToday = parseInt(localStorage.getItem('withdrawalsToday')) || 0;
+            lastWithdrawalDate = localStorage.getItem('lastWithdrawalDate') || new Date().toISOString();
+            
+            // Reset withdrawal count if the day has changed
+            const today = new Date().toDateString();
+            const lastWithdrawalDay = new Date(lastWithdrawalDate).toDateString();
+            if (today !== lastWithdrawalDay) {
+                withdrawalsToday = 0;
+                localStorage.setItem('withdrawalsToday', withdrawalsToday);
+                localStorage.setItem('lastWithdrawalDate', new Date().toISOString());
+            }
+
+            updateUI();
+            renderMemberships();
+        }
+
+        init();
+    </script>
+</body>
+</html>
